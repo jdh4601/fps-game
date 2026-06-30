@@ -1,5 +1,9 @@
 # FPS Game
 
+| 평상시 | 조준 |
+|:------:|:----:|
+| ![평상시](docs/screenshot-normal.png) | ![조준](docs/screenshot-aim.png) |
+
 브라우저용 1인칭 슈팅(FPS) 게임. PUBG 미라마 스타일의 **사막 군사기지 사격장**에서 타겟을 맞히는 미니 게임입니다. Three.js로 충돌·무기·후처리까지 직접 구현했습니다.
 
 ![tech](https://img.shields.io/badge/Three.js-r160-black) ![build](https://img.shields.io/badge/Vite-5-646CFF) ![lang](https://img.shields.io/badge/JavaScript-ESM-f7df1e)
