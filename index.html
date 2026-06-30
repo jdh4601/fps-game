@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FPS Game</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; }
+      #app { width: 100vw; height: 100vh; display: block; touch-action: none; cursor: grab; }
+      #app:active { cursor: grabbing; }
+
+      /* 시작 힌트: 잠깐 떴다가 자동으로 사라짐 */
+      #hint {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 16px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 15px;
+        border-radius: 6px;
+        pointer-events: none;
+        opacity: 1;
+        animation: hintFade 1s ease 4s forwards;
+      }
+      @keyframes hintFade { to { opacity: 0; visibility: hidden; } }
+
+      /* 정중앙 십자(+) 조준점 */
+      #crosshair {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 22px;
+        height: 22px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 0 0 1px rgba(0, 0, 0, 0.6);
+      }
+      #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+      #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+      /* 점수/명중률 HUD (우상단) */
+      #score {
+        position: fixed;
+        top: 10px;
+        right: 12px;
+        padding: 10px 14px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #ffffff;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 16px;
+        line-height: 1.5;
+        text-align: right;
+        white-space: pre;
+        border-radius: 6px;
+        pointer-events: none;
+      }
+
+      /* CLEAR! 안내 (중앙) */
+      #clear {
+        position: fixed;
+        top: 38%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ffd040;
+        font-family: system-ui, sans-serif;
+        font-size: 64px;
+        font-weight: 800;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+        text-align: center;
+        pointer-events: none;
+      }
+      #clear .hint { display: block; font-size: 20px; color: #fff; margin-top: 8px; }
+      #clear.hidden { display: none; }
+
+      /* 탄약 (하단 중앙) */
+      #ammo {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 24px;
+        font-weight: 700;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+        pointer-events: none;
+      }
+
+      /* 체력바 (좌하단) */
+      #health {
+        position: fixed;
+        left: 16px;
+        bottom: 18px;
+        width: 220px;
+        height: 18px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 4px;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      #health-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #e23636, #ff8a5c);
+        transition: width 0.15s ease-out;
+      }
+
+      /* 미니맵 (우하단) */
+      #minimap {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        pointer-events: none;
+      }
+
+      /* 온스크린 조작 버튼 (투명) */
+      .ctrl-btn {
+        position: fixed;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.85);
+        font-family: system-ui, sans-serif;
+        font-weight: 700;
+        border-radius: 10px;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        cursor: pointer;
+        backdrop-filter: blur(1px);
+      }
+      .ctrl-btn.active {
+        background: rgba(255, 255, 255, 0.28);
+        border-color: rgba(255, 255, 255, 0.7);
+      }
+
+      /* 좌하단 D-패드 (이동) — 미니맵 좌측에 배치 */
+      .dpad { width: 56px; height: 56px; font-size: 20px; }
+      #btn-fwd { left: 86px; bottom: 132px; }
+      #btn-back { left: 86px; bottom: 16px; }
+      #btn-left { left: 24px; bottom: 74px; }
+      #btn-right { left: 148px; bottom: 74px; }
+
+      /* 우하단 액션 버튼 — 미니맵 좌측 위쪽에 배치 */
+      .action { font-size: 14px; height: 44px; }
+      #btn-fire { right: 180px; bottom: 96px; width: 76px; height: 76px; border-radius: 50%; font-size: 16px; }
+      #btn-aim { right: 268px; bottom: 110px; width: 64px; height: 64px; border-radius: 50%; }
+      #btn-jump { right: 180px; bottom: 16px; width: 76px; }
+      #btn-run { right: 268px; bottom: 16px; width: 64px; }
+      #btn-reload { right: 268px; bottom: 64px; width: 64px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="app"></canvas>
+    <div id="hint">화면 드래그 = 시점 회전 · 이동 WASD · 점프 Space · 발사 Enter · 조준 R · 재장전은 RELOAD 버튼</div>
+    <div id="crosshair"></div>
+    <div id="score"></div>
+    <div id="clear" class="hidden">CLEAR!<span class="hint">RELOAD 버튼으로 리스폰</span></div>
+    <div id="ammo"></div>
+    <div id="health"><div id="health-fill"></div></div>
+    <canvas id="minimap" width="150" height="150"></canvas>
+
+    <!-- 온스크린 조작 버튼 -->
+    <div id="btn-fwd" class="ctrl-btn dpad">W</div>
+    <div id="btn-back" class="ctrl-btn dpad">S</div>
+    <div id="btn-left" class="ctrl-btn dpad">A</div>
+    <div id="btn-right" class="ctrl-btn dpad">D</div>
+    <div id="btn-run" class="ctrl-btn action">RUN</div>
+    <div id="btn-jump" class="ctrl-btn action">JUMP</div>
+    <div id="btn-reload" class="ctrl-btn action">RELOAD</div>
+    <div id="btn-aim" class="ctrl-btn action">AIM</div>
+    <div id="btn-fire" class="ctrl-btn action">FIRE</div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
